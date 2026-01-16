@@ -103,9 +103,9 @@ button{border:0;border-radius:12px;padding:10px 14px;font-weight:700;cursor:poin
     <div class="row">
       <div class="col-12">
         <label>Add custom holiday:</label>
-        <input type="text" id="customHolidayDate" placeholder="YYYY-MM-DD">
-        <input type="text" id="customHolidayName" placeholder="Holiday Name">
-        <button class="ghost" id="addHolidayBtn">Add Holiday</button>
+        <input type="date" id="customHolidayDate">
+<input type="text" id="customHolidayReason" placeholder="Reason">
+<button onclick="addHoliday()">Add</button>
       </div>
     </div>
 
@@ -139,7 +139,7 @@ function toISO(d){ const z=n=>String(n).padStart(2,'0'); return `${d.getFullYear
 function fmtMonth(d){ return d.toLocaleString(undefined,{month:"short"}); }
 function hoursLabel(h){ const whole=Math.floor(h); const mins=Math.round((h-whole)*60); return mins===0?`${whole}h`:`${whole>0?whole+'h ':''}${mins}m`; }
 
-let HOLIDAYS_MAP = {
+const HOLIDAYS_MAP = {
   "2026-01-01":"New Year",
   "2026-01-02":"Public Holiday",
   "2026-01-04":"Holiday", 
@@ -178,7 +178,7 @@ let HOLIDAYS_MAP = {
   "2026-12-31":"Christmas (Work from Home)"
 };
 
-function HOLIDAYS_KEYS(){ return Object.keys(HOLIDAYS_MAP); }
+const INITIAL_HOLIDAYS = new Set(Object.keys(HOLIDAYS_MAP)); 
 
 /* Save/Load inputs */
 function saveInputs(){ 
@@ -216,27 +216,55 @@ function buildParams(){
 }
 
 /* Generate schedule */
+/* Generate schedule */
 function generate({start,totalHours,chosen}){
   const weekdayToNum={Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6};
   const selectedNums=Object.keys(chosen).map(d=>weekdayToNum[d]);
-  const events=[]; let hoursDone=0;
-  let cursor=new Date(start); cursor.setHours(0,0,0,0);
-  const maxDays=365*2; let daysScanned=0;
-  while(hoursDone<totalHours && daysScanned<maxDays){
-    const iso=toISO(cursor), dow=cursor.getDay();
+  const events=[]; 
+  let hoursDone=0;
+  let cursor=new Date(start); 
+  cursor.setHours(0,0,0,0);
+  const maxDays=365*2; 
+  let daysScanned=0;
+
+  while(hoursDone < totalHours && daysScanned < maxDays){
+    const iso = toISO(cursor);
+    const dow = cursor.getDay();
+
     if(selectedNums.includes(dow)){
-      if(HOLIDAYS_KEYS().includes(iso)){
-        events.push({date:new Date(cursor),weekday:WEEKDAY[dow],holiday:true,reason:HOLIDAYS_MAP[iso],hours:0,time:""});
-      }else{
-        const dayName=WEEKDAY[dow], slot=chosen[dayName];
-        const useHrs=Math.min(slot.hours,totalHours-hoursDone);
-        events.push({date:new Date(cursor),weekday:dayName,holiday:false,hours:useHrs,time:slot.time,partial:useHrs<slot.hours});
-        hoursDone+=useHrs;
+      const dayName = WEEKDAY[dow];
+      if(HOLIDAYS_MAP[iso]){
+        // Holiday
+        events.push({
+          date: new Date(cursor),
+          weekday: dayName,
+          holiday: true,
+          reason: HOLIDAYS_MAP[iso],
+          hours: 0,
+          time: ""
+        });
+      } else {
+        // Regular class
+        const slot = chosen[dayName];
+        if(slot){
+          const useHrs = Math.min(slot.hours, totalHours - hoursDone);
+          events.push({
+            date: new Date(cursor),
+            weekday: dayName,
+            holiday: false,
+            hours: useHrs,
+            time: slot.time,
+            partial: useHrs < slot.hours
+          });
+          hoursDone += useHrs;
+        }
       }
     }
-    cursor.setDate(cursor.getDate()+1);
+
+    cursor.setDate(cursor.getDate() + 1);
     daysScanned++;
   }
+
   return events;
 }
 
@@ -332,14 +360,19 @@ document.getElementById('clear').addEventListener('click',()=>{
 
 document.getElementById('printBtn').addEventListener('click',()=>window.print());
 
-document.getElementById('addHolidayBtn').addEventListener('click',()=>{
-  const date = document.getElementById('customHolidayDate').value.trim();
-  const name = document.getElementById('customHolidayName').value.trim();
-  if(date && name){
-    HOLIDAYS_MAP[date]=name;
-    alert(`Added holiday: ${date} → ${name}`);
+function addHoliday() {
+  const date = document.getElementById('customHolidayDate').value;
+  const reason = document.getElementById('customHolidayReason').value || "Holiday";
+
+  if (!date) {
+    alert("Please pick a date.");
+    return;
   }
-});
+
+  HOLIDAYS_MAP[date] = reason;
+
+  console.log("ADDED HOLIDAY:", date, reason);
+}
 </script>
 </body>
 </html>
